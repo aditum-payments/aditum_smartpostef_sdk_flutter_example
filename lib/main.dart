@@ -28,7 +28,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  static const platform = MethodChannel('com.example.your_app_name.channel'); // Nome do canal
+  static const platform = MethodChannel('br.com.aditum.payment'); // Nome do canal
 
   @override
   Widget build(BuildContext context) {
