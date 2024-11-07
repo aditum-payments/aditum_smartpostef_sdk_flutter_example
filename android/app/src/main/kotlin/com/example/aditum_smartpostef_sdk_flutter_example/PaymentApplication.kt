@@ -78,7 +78,7 @@ class PaymentApplication : Application() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Log.d(TAG, "Android Oreo or higher: " + Build.VERSION.SDK_INT);
-            startForegroundService(intent, );
+            startForegroundService(intent);
         } else {
             Log.d(TAG, "Android Nougat or lower: " + Build.VERSION.SDK_INT);
             startService(intent);
