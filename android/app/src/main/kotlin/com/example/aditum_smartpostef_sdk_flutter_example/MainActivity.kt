@@ -8,11 +8,16 @@ import br.com.aditum.data.v2.model.init.InitRequest
 import br.com.aditum.data.v2.model.init.InitResponse
 import br.com.aditum.data.v2.model.init.InitResponseCallback
 import br.com.aditum.data.v2.model.PinpadMessages
-import br.com.aditum.data.v2.model.ResponseError
+import br.com.aditum.data.v2.model.callbacks.GetClearDataRequest
+import br.com.aditum.data.v2.model.callbacks.GetClearDataFinishedCallback
+import br.com.aditum.data.v2.model.callbacks.GetMenuSelectionRequest
+import br.com.aditum.data.v2.model.callbacks.GetMenuSelectionFinishedCallback
+import br.com.aditum.data.v2.enums.TransactionStatus
 import br.com.aditum.IAditumSdkService
+import br.com.aditum.data.v2.IPaymentCallback
+
 import io.flutter.Log
 import io.flutter.embedding.engine.FlutterEngine
-
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlin.concurrent.thread
@@ -65,7 +70,32 @@ class MainActivity: FlutterActivity()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        mPaymentApplication = PaymentApplication()
+        mPaymentApplication = application as PaymentApplication
+        mPaymentApplication.serviceConnectionListener = mServiceConnected
+        mPaymentApplication.startAditumSdkService()
+    }
+
+    private val mServiceConnected = object : PaymentApplication.OnServiceConnectionListener {
+        override fun onServiceConnection(serviceConnected: Boolean) {
+            if (TAG != null) {
+                Log.d(TAG, "onServiceConnection - serviceConnected: $serviceConnected")
+            }
+            if (serviceConnected) {
+                mPaymentApplication.communicationService?.registerPaymentCallback(mPaymentCallback)
+            }
+        }
+    }
+
+    private val mPaymentCallback = object : IPaymentCallback.Stub() {
+        override fun notification(message: String?, transactionStatus: TransactionStatus?, command: AbecsCommands?) {}
+
+        override fun pinNotification(message: String, length: Int) {}
+
+        override fun startGetClearData(clearDataRequest: GetClearDataRequest?, finished: GetClearDataFinishedCallback?) {}
+
+        override fun startGetMenuSelection(menuSelectionRequest: GetMenuSelectionRequest?, finished: GetMenuSelectionFinishedCallback?) {}
+
+        override fun qrCodeGenerated(qrCode: String, expirationTime: Int) {}
     }
 
     private fun init() {
