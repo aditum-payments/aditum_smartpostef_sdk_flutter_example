@@ -5,7 +5,7 @@
     </queries>
 
     <application
-        android:label="aditum_smartpostef_sdk_flutter_example"
+        android:label="Aditum Example Flutter"
         android:name=".PaymentApplication"
         android:icon="@mipmap/ic_launcher">
         <activity
