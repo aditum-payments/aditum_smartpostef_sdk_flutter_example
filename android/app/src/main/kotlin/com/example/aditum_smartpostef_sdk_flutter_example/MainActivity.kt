@@ -15,18 +15,34 @@ import br.com.aditum.data.v2.model.callbacks.GetMenuSelectionFinishedCallback
 import br.com.aditum.data.v2.enums.TransactionStatus
 import br.com.aditum.IAditumSdkService
 import br.com.aditum.data.v2.IPaymentCallback
+import br.com.aditum.data.v2.enums.InstallmentType
+import br.com.aditum.data.v2.enums.PayOperationType
+import br.com.aditum.data.v2.enums.PaymentType
+import br.com.aditum.data.v2.enums.PrintStatus
+import br.com.aditum.data.v2.model.cancelation.CancelationRequest
+import br.com.aditum.data.v2.model.cancelation.CancelationResponse
+import br.com.aditum.data.v2.model.cancelation.CancelationResponseCallback
+import br.com.aditum.data.v2.model.payment.PaymentRequest
+import br.com.aditum.data.v2.model.payment.PaymentResponse
+import br.com.aditum.data.v2.model.payment.PaymentResponseCallback
+import br.com.aditum.data.v2.model.transactions.ConfirmTransactionCallback
+import br.com.aditum.device.callbacks.IPrintStatusCallback
 
 import io.flutter.Log
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.util.UUID
 import kotlin.concurrent.thread
+import com.google.gson.Gson
 
 class MainActivity: FlutterActivity()
 {
     // After adding All Dependencies, 
     //you can access objects of classes declared .aar File
-    public val TAG = MainActivity::class.simpleName
+    public val TAG : String = MainActivity::class.simpleName as String
+
+    private val gson: Gson = Gson()
 
     private lateinit var mPaymentApplication: PaymentApplication;
 
@@ -41,25 +57,19 @@ class MainActivity: FlutterActivity()
         ).setMethodCallHandler { call: MethodCall, result: MethodChannel.Result ->
             when (call.method) {
                 "init" -> {
-                    // Lógica para o método "init"
-                    this.init();
-                    result.success("Init successful")
+                    this.init(call, result);
                 }
                 "pay" -> {
-                    // Lógica para o método "pay"
-                    result.success("Payment successful")
+                    this.pay(call, result);
                 }
                 "confirm" -> {
-                    // Lógica para o método "confirm"
-                    result.success("Confirmation successful")
+                    this.confirm(call, result);
                 }
                 "cancelation" -> {
-                    // Lógica para o método "cancelation"
-                    result.success("Cancellation successful")
+                    this.cancel(call, result);
                 }
                 "print" -> {
-                    // Lógica para o método "print"
-                    result.success("Print successful")
+                    this.print(call, result);
                 }
                 else -> {
                     result.notImplemented()
@@ -77,13 +87,186 @@ class MainActivity: FlutterActivity()
 
     private val mServiceConnected = object : PaymentApplication.OnServiceConnectionListener {
         override fun onServiceConnection(serviceConnected: Boolean) {
-            if (TAG != null) {
-                Log.d(TAG, "onServiceConnection - serviceConnected: $serviceConnected")
-            }
+            Log.d(TAG, "onServiceConnection - serviceConnected: $serviceConnected")
             if (serviceConnected) {
                 mPaymentApplication.communicationService?.registerPaymentCallback(mPaymentCallback)
             }
         }
+    }
+
+    private fun init(call: MethodCall, result: MethodChannel.Result) {
+        mPaymentApplication.communicationService?.let { communicationService: IAditumSdkService ->
+            val pinpadMessages = PinpadMessages()
+            pinpadMessages.mainMessage = "Dia do ACBR"
+
+            val activationCode = call.argument<String>("activationCode")
+
+            val initRequest = InitRequest()
+            initRequest.pinpadMessages = pinpadMessages
+            initRequest.activationCode = activationCode
+            initRequest.applicationName = "PaymentExample"
+            initRequest.applicationVersion = "1.0.0"
+            initRequest.applicationToken = "mk_Zftn0TUy8UOCph7Ss3yl6A"
+            mInitResponseCallback.result = result;
+            communicationService.init(initRequest, mInitResponseCallback)
+        } ?: run {
+            mPaymentApplication.startAditumSdkService()
+        }
+    }
+
+    private val mInitResponseCallback = object : InitResponseCallback.Stub() {
+        override fun onResponse(initResponse: InitResponse?) {
+            initResponse?.let {
+                Log.d(TAG, "onResponse - initResponse: $initResponse")
+                if (initResponse.initialized) {
+                    getMerchantData(result)
+                } else {
+                    NotificationMessage.showMessageBox(this@MainActivity, "Error", "onResponse - initResponse: $initResponse")
+                }
+            } ?: run {
+                NotificationMessage.showMessageBox(this@MainActivity, "Error", "onResponse - initResponse is null")
+            }
+        }
+
+        var result: MethodChannel.Result? = null;
+    }
+
+    private fun getMerchantData(result: MethodChannel.Result?) {
+        Log.d(TAG, "getMertchantData")
+        thread {
+            mPaymentApplication.communicationService?.let { communicationService: IAditumSdkService ->
+                mPaymentApplication.merchantData = communicationService.getMerchantData()
+                result?.success(gson.toJson(mPaymentApplication.merchantData));
+            } ?: run {
+                NotificationMessage.showMessageBox(this, "Error", "Communication service not available. Trying to recreate communication with service.")
+            }
+        }
+    }
+
+    private fun pay(
+        call: MethodCall,
+        result: MethodChannel.Result
+    ) {
+
+        val amount: Int = call.argument<Int>("amount") ?: 500
+        val installmentNumber = call.argument("installmentNumber") ?: 1
+
+        var paymentType = PaymentType.Credit
+
+        var installmentType = InstallmentType.None
+
+        var operationType = PayOperationType.Authorization
+
+        val paymentRequest = PaymentRequest(
+            paymentType = paymentType,
+            operationType = operationType,
+            amount = amount.toLong(),
+            installmentNumber = installmentNumber,
+            installmentType = installmentType,
+            merchantChargeId = UUID.randomUUID().toString(),
+            currency = 986,
+            isQrCode = PaymentType.Pix == paymentType,
+            allowContactless = true,
+            manualEntry = false,
+        )
+
+        thread {
+            mPaymentApplication.communicationService?.let { communicationService: IAditumSdkService ->
+                mPaymentApplication.merchantData = communicationService.merchantData
+                Log.d(TAG, "CommunicationService: $communicationService")
+                thread { communicationService.pay(paymentRequest, mPayResponseCallback) }
+            } ?: run {
+                NotificationMessage.showMessageBox(this, "Error", "Communication service not available. Returning to terminal Initialization");
+            }
+        }
+    }
+
+    private val mPayResponseCallback = object : PaymentResponseCallback.Stub() {
+        override fun onResponse(paymentResponse: PaymentResponse?) {
+            Log.d(TAG, "onResponse - paymentResponse: $paymentResponse")
+
+            paymentResponse?.let {
+                if (paymentResponse.isApproved) {
+                    NotificationMessage.showMessageBox(this@MainActivity, "Success", "onResponse - paymentResponse: $paymentResponse")
+                } else {
+                    NotificationMessage.showMessageBox(this@MainActivity, "Error", "onResponse - paymentResponse: $paymentResponse")
+                }
+            } ?: run {
+                NotificationMessage.showMessageBox(this@MainActivity, "Error", "onResponse - paymentResponse is null")
+            }
+        }
+    }
+
+    private val mConfirmResponseCallback = object : ConfirmTransactionCallback.Stub() {
+        override fun onResponse(confirmed: Boolean) {
+            result?.success(confirmed)
+        }
+        var result: MethodChannel.Result? = null;
+    }
+
+    private fun confirm(
+        call: MethodCall,
+        result: MethodChannel.Result
+    ) {
+        mPaymentApplication.communicationService?.let { communicationService: IAditumSdkService ->
+            thread { 
+                val nsu = call.argument<String>("nsu");
+                mConfirmResponseCallback.result = result;
+                communicationService.confirmTransaction(nsu, mConfirmResponseCallback) 
+            }
+        } ?: run {
+            result.success(false);
+        }
+    }
+
+    private val mCancelationResponseCallback = object : CancelationResponseCallback.Stub() {
+        override fun onResponse(cancelationResponse: CancelationResponse?) {
+            Log.d(TAG, "onResponse - cancelationResponse: $cancelationResponse")
+            val isCanceled = cancelationResponse?.canceled ?: false;
+            result?.success(isCanceled);
+        }
+        
+        var result: MethodChannel.Result? = null;
+    }
+
+    private fun cancel(
+        call: MethodCall,
+        result: MethodChannel.Result
+    ) {
+        mPaymentApplication.communicationService?.let { mAditumSdkService: IAditumSdkService ->
+            var nsu: String? = call.argument<String>("nsu");
+            var isReversal: Boolean? = call.argument<Boolean>("isReversal");
+            if(nsu != null && isReversal != null) {
+                val mCancelationRequest = CancelationRequest(nsu, isReversal);
+                mCancelationResponseCallback.result = result;
+                thread { mAditumSdkService.cancel(mCancelationRequest, mCancelationResponseCallback) }
+            } else {
+                result.success(false);
+            }
+
+        } ?: run {
+            Log.e(TAG, "Communication service not available.")
+        }
+    }
+
+    private fun print(call: MethodCall,result: MethodChannel.Result){
+        mPaymentApplication.communicationService?.let { communicationService: IAditumSdkService ->
+            thread {
+
+                communicationService.deviceSdk.printerSdk.print(, mPrintStatuslCallback)
+            }
+        } ?: run {
+            result.success(false);
+        }
+    }
+
+    private val mPrintStatuslCallback = object : IPrintStatusCallback.Stub() {
+        override fun finished(status: PrintStatus) {
+            Log.d(TAG, "onPrintStatus - printResponse: $status")
+            result?.success(status == PrintStatus.Ok);
+        }
+
+        var result: MethodChannel.Result? = null;
     }
 
     private val mPaymentCallback = object : IPaymentCallback.Stub() {
@@ -97,57 +280,5 @@ class MainActivity: FlutterActivity()
 
         override fun qrCodeGenerated(qrCode: String, expirationTime: Int) {}
     }
-
-    private fun init() {
-        mPaymentApplication.communicationService?.let { communicationService: IAditumSdkService ->
-            val pinpadMessages = PinpadMessages()
-            pinpadMessages.mainMessage = "Payment Example"
-
-            val initRequest = InitRequest()
-            initRequest.pinpadMessages = pinpadMessages
-            initRequest.activationCode = "291153668"
-            initRequest.applicationName = "PaymentExample"
-            initRequest.applicationVersion = "1.0.0"
-            initRequest.applicationToken = "mk_Zftn0TUy8UOCph7Ss3yl6A"
-            communicationService.init(initRequest, mInitResponseCallback)
-        } ?: run {
-            mPaymentApplication.startAditumSdkService()
-        }
-    }
-
-    private val mInitResponseCallback = object : InitResponseCallback.Stub() {
-        override fun onResponse(initResponse: InitResponse?) {
-            initResponse?.let {
-                if (TAG != null) {
-                    Log.d(TAG, "onResponse - initResponse: $initResponse")
-                }
-                if (initResponse.initialized) {
-                    getMertchantData()
-                } else {
-                    NotificationMessage.showMessageBox(this@MainActivity, "Error", "onResponse - initResponse: $initResponse")
-                }
-            } ?: run {
-                NotificationMessage.showMessageBox(this@MainActivity, "Error", "onResponse - initResponse is null")
-            }
-        }
-    }
-
-    private fun getMertchantData() {
-        if (TAG != null) {
-            Log.d(TAG, "getMertchantData")
-        }
-        thread {
-            mPaymentApplication.communicationService?.let { communicationService: IAditumSdkService ->
-                mPaymentApplication.merchantData = communicationService.getMerchantData()
-            } ?: run {
-                NotificationMessage.showMessageBox(this, "Error", "Communication service not available. Trying to recreate communication with service.")
-            }
-        }
-    }
-
-    private fun pay() {
-
-    }
-
 
 }
