@@ -11,7 +11,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'MethodChannel Example',
+      title: 'Aditum Flutter Example',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
