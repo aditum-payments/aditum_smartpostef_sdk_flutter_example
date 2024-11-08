@@ -11,6 +11,7 @@ import br.com.aditum.data.v2.enums.AbecsCommands
 import br.com.aditum.data.v2.enums.InstallmentType
 import br.com.aditum.data.v2.enums.PayOperationType
 import br.com.aditum.data.v2.enums.PaymentType
+import br.com.aditum.data.v2.enums.PaymentType.Pix
 import br.com.aditum.data.v2.enums.PrintStatus
 import br.com.aditum.data.v2.enums.TransactionStatus
 import br.com.aditum.data.v2.model.PinpadMessages
@@ -21,6 +22,7 @@ import br.com.aditum.data.v2.model.callbacks.GetMenuSelectionRequest
 import br.com.aditum.data.v2.model.cancelation.CancelationRequest
 import br.com.aditum.data.v2.model.cancelation.CancelationResponse
 import br.com.aditum.data.v2.model.cancelation.CancelationResponseCallback
+import br.com.aditum.data.v2.model.deactivation.DeactivationResponseCallback
 import br.com.aditum.data.v2.model.init.InitRequest
 import br.com.aditum.data.v2.model.init.InitResponse
 import br.com.aditum.data.v2.model.init.InitResponseCallback
@@ -74,6 +76,9 @@ class MainActivity: FlutterActivity()
                 }
                 "print" -> {
                     this.print(call, result)
+                }
+                "deactivate" -> {
+                    this.deactivate(call, result)
                 }
                 else -> {
                     result.notImplemented()
@@ -169,7 +174,7 @@ class MainActivity: FlutterActivity()
             installmentType = installmentType,
             merchantChargeId = UUID.randomUUID().toString(),
             currency = 986,
-            isQrCode = PaymentType.Pix == paymentType,
+            isQrCode = Pix == paymentType,
             allowContactless = true,
             manualEntry = false,
         )
@@ -203,6 +208,7 @@ class MainActivity: FlutterActivity()
 
     private val mConfirmResponseCallback = object : ConfirmTransactionCallback.Stub() {
         override fun onResponse(confirmed: Boolean) {
+            NotificationMessage.showMessageBox(this@MainActivity, "Success", "onResponse - confirmTransactionResponse: $confirmed")
             result?.success(confirmed)
         }
         var result: MethodChannel.Result? = null;
@@ -219,6 +225,7 @@ class MainActivity: FlutterActivity()
                 communicationService.confirmTransaction(nsu, mConfirmResponseCallback) 
             }
         } ?: run {
+            NotificationMessage.showMessageBox(this@MainActivity, "Error", "onResponse - ConfirmTransaction is null")
             result.success(false);
         }
     }
@@ -227,6 +234,7 @@ class MainActivity: FlutterActivity()
         override fun onResponse(cancelationResponse: CancelationResponse?) {
             Log.d(TAG, "onResponse - cancelationResponse: $cancelationResponse")
             val isCanceled = cancelationResponse?.canceled ?: false;
+            NotificationMessage.showMessageBox(this@MainActivity, "Success", "onResponse - CancelationResponse: $cancelationResponse")
             result?.success(isCanceled);
         }
         
@@ -259,7 +267,7 @@ class MainActivity: FlutterActivity()
 
             var receiptImage: String = call.argument<String>("nsu")  as String;
             val bitmap = createImage(384, 50, Color.BLACK, receiptImage);
-                thread {communicationService.deviceSdk.printerSdk.print(bitmap, mPrintStatuslCallback)}
+                thread {communicationService.deviceSdk.printerSdk.print(bitmap, mPrintStatusCallback)}
         } ?: run {
             result.success(false);
         }
@@ -278,10 +286,30 @@ class MainActivity: FlutterActivity()
         return bitmap
     }
 
-    private val mPrintStatuslCallback = object : IPrintStatusCallback.Stub() {
+    private val mPrintStatusCallback = object : IPrintStatusCallback.Stub() {
         override fun finished(status: PrintStatus) {
             Log.d(TAG, "onPrintStatus - printResponse: $status")
             result?.success(status == PrintStatus.Ok);
+        }
+
+        var result: MethodChannel.Result? = null;
+    }
+
+    private fun deactivate(call: MethodCall, result: MethodChannel.Result) {
+        mPaymentApplication.communicationService?.let { communicationService: IAditumSdkService ->
+
+            thread {communicationService.deactivate(mDeactivationCallback)}
+        } ?: run {
+            NotificationMessage.showMessageBox(this, "Error", "Communication service not available. Trying to recreate communication with service.")
+            result.success(false);
+        }
+    }
+
+    private val mDeactivationCallback = object : DeactivationResponseCallback.Stub() {
+        override fun onResponse(status: Boolean) {
+            Log.d(TAG, "onDeactivationResponse - deactivationResponse: $status")
+            NotificationMessage.showMessageBox(this@MainActivity, "Success", "onDeactivationResponse - deactivationResponse: $status")
+            result?.success(status);
         }
 
         var result: MethodChannel.Result? = null;

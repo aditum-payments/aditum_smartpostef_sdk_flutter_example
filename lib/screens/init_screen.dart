@@ -55,6 +55,13 @@ class _InitScreenState extends State<InitScreen> {
                       }
                     : null, // Habilita o botão se o código tiver 9 dígitos
                 child: Text('Iniciar'),
+              ), 
+              SizedBox(height: 20),
+              ElevatedButton( // Adiciona o botão Desativar
+                onPressed: () {
+                  _invokeMethod('deactivate', ""); // Chama o método deactivate
+                },
+                child: Text('Desativar'),
               ),
             ],
           ),
@@ -65,13 +72,18 @@ class _InitScreenState extends State<InitScreen> {
 
   Future<void> _invokeMethod(String method, String activationCode) async {
     try {
-      final result = await platform.invokeMethod(method, {'activationCode': activationCode});
+      final Map<String, dynamic> arguments = activationCode != null
+          ? {'activationCode': activationCode}
+          : {};
+      final result = await platform.invokeMethod(method, arguments);
       print('Result: $result');
       // Navegue para a HomeScreen
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => HomeScreen()),
-      ); 
+      if (method == 'init') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => HomeScreen()),
+        ); 
+      }
     } on PlatformException catch (e) {
       print('Failed to invoke: ${e.message}');
     }
