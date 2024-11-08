@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:convert';
 
 class PrintScreen extends StatefulWidget {
   @override
@@ -24,24 +25,18 @@ class _PrintScreenState extends State<PrintScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              TextFormField(
-                decoration: InputDecoration(labelText: 'DOC TEF'),
-                keyboardType: TextInputType.number, 
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Por favor, insira o DOC TEF';
-                  }
-                  return null;
-                },
+              TextField(
+                decoration: const InputDecoration(labelText: 'Texto para Impressão'),
+                keyboardType: TextInputType.text, 
                 onChanged: (value) {
                   setState(() {
                     _docTef = value;
                   });
                 },
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: _formKey.currentState!.validate() 
+                onPressed: _docTef.isNotEmpty && _formKey.currentState!.validate() 
                     ? () {
                         _invokeMethod('print', _docTef);
                       }
@@ -57,7 +52,7 @@ class _PrintScreenState extends State<PrintScreen> {
 
   Future<void> _invokeMethod(String method, String docTef) async {
     try {
-      final String result = await platform.invokeMethod(method, {'docTef': docTef});
+      final String result = await platform.invokeMethod(method, {'nsu': docTef});
       print('Result: $result');
     } on PlatformException catch (e) {
       print('Failed to invoke: ${e.message}');

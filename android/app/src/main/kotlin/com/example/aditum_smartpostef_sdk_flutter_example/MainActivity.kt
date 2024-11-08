@@ -1,40 +1,44 @@
 package com.example.aditum_smartpostef_sdk_flutter_example
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import android.os.Bundle
-import io.flutter.embedding.android.FlutterActivity
-
-import br.com.aditum.data.v2.enums.AbecsCommands
-import br.com.aditum.data.v2.model.init.InitRequest
-import br.com.aditum.data.v2.model.init.InitResponse
-import br.com.aditum.data.v2.model.init.InitResponseCallback
-import br.com.aditum.data.v2.model.PinpadMessages
-import br.com.aditum.data.v2.model.callbacks.GetClearDataRequest
-import br.com.aditum.data.v2.model.callbacks.GetClearDataFinishedCallback
-import br.com.aditum.data.v2.model.callbacks.GetMenuSelectionRequest
-import br.com.aditum.data.v2.model.callbacks.GetMenuSelectionFinishedCallback
-import br.com.aditum.data.v2.enums.TransactionStatus
 import br.com.aditum.IAditumSdkService
 import br.com.aditum.data.v2.IPaymentCallback
+import br.com.aditum.data.v2.enums.AbecsCommands
 import br.com.aditum.data.v2.enums.InstallmentType
 import br.com.aditum.data.v2.enums.PayOperationType
 import br.com.aditum.data.v2.enums.PaymentType
 import br.com.aditum.data.v2.enums.PrintStatus
+import br.com.aditum.data.v2.enums.TransactionStatus
+import br.com.aditum.data.v2.model.PinpadMessages
+import br.com.aditum.data.v2.model.callbacks.GetClearDataFinishedCallback
+import br.com.aditum.data.v2.model.callbacks.GetClearDataRequest
+import br.com.aditum.data.v2.model.callbacks.GetMenuSelectionFinishedCallback
+import br.com.aditum.data.v2.model.callbacks.GetMenuSelectionRequest
 import br.com.aditum.data.v2.model.cancelation.CancelationRequest
 import br.com.aditum.data.v2.model.cancelation.CancelationResponse
 import br.com.aditum.data.v2.model.cancelation.CancelationResponseCallback
+import br.com.aditum.data.v2.model.init.InitRequest
+import br.com.aditum.data.v2.model.init.InitResponse
+import br.com.aditum.data.v2.model.init.InitResponseCallback
 import br.com.aditum.data.v2.model.payment.PaymentRequest
 import br.com.aditum.data.v2.model.payment.PaymentResponse
 import br.com.aditum.data.v2.model.payment.PaymentResponseCallback
 import br.com.aditum.data.v2.model.transactions.ConfirmTransactionCallback
 import br.com.aditum.device.callbacks.IPrintStatusCallback
-
+import com.google.gson.Gson
 import io.flutter.Log
+import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.util.UUID
 import kotlin.concurrent.thread
-import com.google.gson.Gson
+import kotlin.io.encoding.ExperimentalEncodingApi
+
 
 class MainActivity: FlutterActivity()
 {
@@ -69,7 +73,7 @@ class MainActivity: FlutterActivity()
                     this.cancel(call, result);
                 }
                 "print" -> {
-                    this.print(call, result);
+                    this.print(call, result)
                 }
                 else -> {
                     result.notImplemented()
@@ -249,15 +253,29 @@ class MainActivity: FlutterActivity()
         }
     }
 
-    private fun print(call: MethodCall,result: MethodChannel.Result){
+    @OptIn(ExperimentalEncodingApi::class)
+    private fun print(call: MethodCall, result: MethodChannel.Result){
         mPaymentApplication.communicationService?.let { communicationService: IAditumSdkService ->
-            thread {
 
-                communicationService.deviceSdk.printerSdk.print(, mPrintStatuslCallback)
-            }
+            var receiptImage: String = call.argument<String>("nsu")  as String;
+            val bitmap = createImage(384, 50, Color.BLACK, receiptImage);
+                thread {communicationService.deviceSdk.printerSdk.print(bitmap, mPrintStatuslCallback)}
         } ?: run {
             result.success(false);
         }
+    }
+
+    fun createImage(width: Int, height: Int, color: Int, name: String?): Bitmap {
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint()
+        paint.color = Color.BLACK
+        paint.style = Paint.Style.FILL;
+        paint.textSize = 32f
+        canvas.drawColor(Color.WHITE);
+        canvas.drawText(name!!, 0f, 25f, paint)
+
+        return bitmap
     }
 
     private val mPrintStatuslCallback = object : IPrintStatusCallback.Stub() {
