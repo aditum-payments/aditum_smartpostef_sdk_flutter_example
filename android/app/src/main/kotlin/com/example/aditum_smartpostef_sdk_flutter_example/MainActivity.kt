@@ -115,7 +115,7 @@ class MainActivity: FlutterActivity()
             initRequest.activationCode = activationCode
             initRequest.applicationName = "PaymentExample"
             initRequest.applicationVersion = "1.0.0"
-            initRequest.applicationToken = "mk_Zftn0TUy8UOCph7Ss3yl6A"
+            initRequest.applicationToken = "1123"
             mInitResponseCallback.result = result;
             communicationService.init(initRequest, mInitResponseCallback)
         } ?: run {
