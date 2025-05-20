@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:aditum_smartpostef_sdk_flutter_example/screens/pay_screen.dart';
+import 'package:aditum_smartpostef_sdk_flutter_example/screens/confirm_screen.dart';
 
 class CancelationScreen extends StatefulWidget {
   @override
@@ -62,6 +64,38 @@ class _CancelationScreenState extends State<CancelationScreen> {
             ],
           ),
         ),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: 2, // 2 = CancelationScreen
+        onTap: (index) {
+          if (index == 0) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => PayScreen()),
+            );
+          } else if (index == 1) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => ConfirmScreen()),
+            );
+          } else if (index == 2) {
+            // Já está na CancelationScreen, não faz nada
+          }
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Principal',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.check_circle),
+            label: 'Confirmação',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.cancel),
+            label: 'Cancelamento',
+          ),
+        ],
       ),
     );
   }
