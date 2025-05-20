@@ -106,14 +106,14 @@ class MainActivity: FlutterActivity()
     private fun init(call: MethodCall, result: MethodChannel.Result) {
         mPaymentApplication.communicationService?.let { communicationService: IAditumSdkService ->
             val pinpadMessages = PinpadMessages()
-            pinpadMessages.mainMessage = "Dia do ACBR"
+            pinpadMessages.mainMessage = "BRADESCO"
 
             val activationCode = call.argument<String>("activationCode")
 
             val initRequest = InitRequest()
             initRequest.pinpadMessages = pinpadMessages
             initRequest.activationCode = activationCode
-            initRequest.applicationName = "PaymentExample"
+            initRequest.applicationName = "pdv top"
             initRequest.applicationVersion = "1.0.0"
             initRequest.applicationToken = "1123"
             mInitResponseCallback.result = result;
@@ -126,14 +126,12 @@ class MainActivity: FlutterActivity()
     private val mInitResponseCallback = object : InitResponseCallback.Stub() {
         override fun onResponse(initResponse: InitResponse?) {
             initResponse?.let {
-                Log.d(TAG, "onResponse - initResponse: $initResponse")
                 if (initResponse.initialized) {
                     getMerchantData(result)
-                } else {
-                    NotificationMessage.showMessageBox(this@MainActivity, "Error", "onResponse - initResponse: $initResponse")
                 }
             } ?: run {
-                NotificationMessage.showMessageBox(this@MainActivity, "Error", "onResponse - initResponse is null")
+                Log.e(TAG, "onResponse - initResponse is null");
+                result?.success(false);
             }
         }
 
@@ -147,7 +145,8 @@ class MainActivity: FlutterActivity()
                 mPaymentApplication.merchantData = communicationService.getMerchantData()
                 result?.success(gson.toJson(mPaymentApplication.merchantData));
             } ?: run {
-                NotificationMessage.showMessageBox(this, "Error", "Communication service not available. Trying to recreate communication with service.")
+                Log.e(TAG, "Communication service not available.")
+                result?.success(false);
             }
         }
     }
@@ -158,23 +157,14 @@ class MainActivity: FlutterActivity()
     ) {
 
         val amount: Int = call.argument<Int>("amount") ?: 500
-        val installmentNumber = call.argument("installmentNumber") ?: 1
-
-        var paymentType = PaymentType.Credit
-
-        var installmentType = InstallmentType.None
 
         var operationType = PayOperationType.Authorization
 
         val paymentRequest = PaymentRequest(
-            paymentType = paymentType,
             operationType = operationType,
             amount = amount.toLong(),
-            installmentNumber = installmentNumber,
-            installmentType = installmentType,
             merchantChargeId = UUID.randomUUID().toString(),
             currency = 986,
-            isQrCode = Pix == paymentType,
             allowContactless = true,
             manualEntry = false,
         )
@@ -183,9 +173,11 @@ class MainActivity: FlutterActivity()
             mPaymentApplication.communicationService?.let { communicationService: IAditumSdkService ->
                 mPaymentApplication.merchantData = communicationService.merchantData
                 Log.d(TAG, "CommunicationService: $communicationService")
+                mPayResponseCallback.result = result;
                 thread { communicationService.pay(paymentRequest, mPayResponseCallback) }
             } ?: run {
-                NotificationMessage.showMessageBox(this, "Error", "Communication service not available. Returning to terminal Initialization");
+                Log.e(TAG, "Communication service not available.")
+                result.success(false);
             }
         }
     }
@@ -195,20 +187,17 @@ class MainActivity: FlutterActivity()
             Log.d(TAG, "onResponse - paymentResponse: $paymentResponse")
 
             paymentResponse?.let {
-                if (paymentResponse.isApproved) {
-                    NotificationMessage.showMessageBox(this@MainActivity, "Success", "onResponse - paymentResponse: $paymentResponse")
-                } else {
-                    NotificationMessage.showMessageBox(this@MainActivity, "Error", "onResponse - paymentResponse: $paymentResponse")
-                }
+                result?.success(gson.toJson(paymentResponse));
             } ?: run {
-                NotificationMessage.showMessageBox(this@MainActivity, "Error", "onResponse - paymentResponse is null")
+                Log.e(TAG, "onResponse - paymentResponse is null");
+                result?.success(null);
             }
         }
+        var result: MethodChannel.Result? = null;
     }
 
     private val mConfirmResponseCallback = object : ConfirmTransactionCallback.Stub() {
         override fun onResponse(confirmed: Boolean) {
-            NotificationMessage.showMessageBox(this@MainActivity, "Success", "onResponse - confirmTransactionResponse: $confirmed")
             result?.success(confirmed)
         }
         var result: MethodChannel.Result? = null;
@@ -225,7 +214,6 @@ class MainActivity: FlutterActivity()
                 communicationService.confirmTransaction(nsu, mConfirmResponseCallback) 
             }
         } ?: run {
-            NotificationMessage.showMessageBox(this@MainActivity, "Error", "onResponse - ConfirmTransaction is null")
             result.success(false);
         }
     }
@@ -234,7 +222,6 @@ class MainActivity: FlutterActivity()
         override fun onResponse(cancelationResponse: CancelationResponse?) {
             Log.d(TAG, "onResponse - cancelationResponse: $cancelationResponse")
             val isCanceled = cancelationResponse?.canceled ?: false;
-            NotificationMessage.showMessageBox(this@MainActivity, "Success", "onResponse - CancelationResponse: $cancelationResponse")
             result?.success(isCanceled);
         }
         
