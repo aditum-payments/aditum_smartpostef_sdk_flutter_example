@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:aditum_smartpostef_sdk_flutter_example/screens/pay_screen.dart';
 import 'package:aditum_smartpostef_sdk_flutter_example/screens/cancelation_screen.dart';
+import 'package:aditum_smartpostef_sdk_flutter_example/screens/cart_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:aditum_smartpostef_sdk_flutter_example/screens/cart_state.dart';
 
 class ConfirmScreen extends StatefulWidget {
   @override
@@ -11,10 +14,15 @@ class ConfirmScreen extends StatefulWidget {
 class _ConfirmScreenState extends State<ConfirmScreen> {
   static const platform = MethodChannel('br.com.aditum.payment'); // Nome do canal
   final _formKey = GlobalKey<FormState>();
-  String _docTef = ''; 
+  String _docTef = '';
 
   @override
   Widget build(BuildContext context) {
+    final cartState = Provider.of<CartState>(context);
+    final cart = cartState.cart;
+    final total = cartState.total;
+    final cartCount = cartState.cartCount;
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Confirm'),
@@ -28,7 +36,7 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
             children: [
               TextFormField(
                 decoration: const InputDecoration(labelText: 'DOC TEF'),
-                keyboardType: TextInputType.number, // Define o tipo de teclado como numérico
+                keyboardType: TextInputType.number,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Por favor, insira o DOC TEF';
@@ -43,11 +51,11 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
               ),
               const SizedBox(height: 20),
               ElevatedButton(
-                onPressed: _docTef.isNotEmpty && _formKey.currentState!.validate() 
+                onPressed: _docTef.isNotEmpty && _formKey.currentState!.validate()
                     ? () {
                         _invokeMethod('confirm', _docTef);
                       }
-                    : null, 
+                    : null,
                 child: const Text('Confirmar'),
               ),
             ],
@@ -69,22 +77,65 @@ class _ConfirmScreenState extends State<ConfirmScreen> {
               context,
               MaterialPageRoute(builder: (_) => CancelationScreen()),
             );
+          } else if (index == 3) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CartScreen(
+                  removeFromCart: cartState.removeFromCart, // ajuste conforme necessário
+                ),
+              ),
+            );
           }
         },
-        items: const [
-          BottomNavigationBarItem(
+        items: [
+          const BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: 'Principal',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.check_circle),
             label: 'Confirmação',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.cancel),
             label: 'Cancelamento',
           ),
+          BottomNavigationBarItem(
+            icon: Stack(
+              children: [
+                const Icon(Icons.shopping_cart),
+                if (cartCount > 0)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: Container(
+                      padding: EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      constraints: BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        '$cartCount',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            label: 'Carrinho',
+          ),
         ],
+        type: BottomNavigationBarType.fixed,
       ),
     );
   }

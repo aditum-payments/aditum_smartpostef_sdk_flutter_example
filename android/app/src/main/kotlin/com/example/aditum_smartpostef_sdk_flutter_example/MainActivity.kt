@@ -157,13 +157,15 @@ class MainActivity: FlutterActivity()
     ) {
 
         val amount: Int = call.argument<Int>("amount") ?: 500
+        
+        val merchantChargeId: String = call.argument<String>("merchantChargeId") ?: UUID.randomUUID().toString()
 
         var operationType = PayOperationType.Authorization
 
         val paymentRequest = PaymentRequest(
             operationType = operationType,
             amount = amount.toLong(),
-            merchantChargeId = UUID.randomUUID().toString(),
+            merchantChargeId = merchantChargeId,
             currency = 986,
             allowContactless = true,
             manualEntry = false,
@@ -287,7 +289,6 @@ class MainActivity: FlutterActivity()
 
             thread {communicationService.deactivate(mDeactivationCallback)}
         } ?: run {
-            NotificationMessage.showMessageBox(this, "Error", "Communication service not available. Trying to recreate communication with service.")
             result.success(false);
         }
     }
@@ -295,7 +296,6 @@ class MainActivity: FlutterActivity()
     private val mDeactivationCallback = object : DeactivationResponseCallback.Stub() {
         override fun onResponse(status: Boolean) {
             Log.d(TAG, "onDeactivationResponse - deactivationResponse: $status")
-            NotificationMessage.showMessageBox(this@MainActivity, "Success", "onDeactivationResponse - deactivationResponse: $status")
             result?.success(status);
         }
 
